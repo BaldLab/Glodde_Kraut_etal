@@ -21,6 +21,7 @@ library("rstudioapi")
 
 # Set working directory to source file location
 setwd(dirname(getActiveDocumentContext()$path))
+setwd("..")
 primary.dir <- getwd()
 ```
 
@@ -32,16 +33,12 @@ primary.dir <- getwd()
 ##################################
 
 # read in data for generating indel frequency pie charts
-read.data.pie <- function(working.dir = "Polyclonal_cell_lines/",
-                          input.dir = "statistics/",
+read.data.pie <- function(input.dir = "data/statistics/",
                           pattern.var = "Mutation_stats.txt",
                           output.dir = "results/"){
   
   # ensure starting in primary directory
   setwd(primary.dir)
-  
-  # move to working directory
-  setwd(working.dir)
   
   # create output dir
   if(!dir.exists(output.dir)){
@@ -49,14 +46,14 @@ read.data.pie <- function(working.dir = "Polyclonal_cell_lines/",
   }
   
   
-# Input file.path for mutation stats tables
-files.var <- list.files(path = input.dir, pattern = pattern.var)
-
-# combine for full path 
-file.path <- paste0(input.dir, files.var)
-
-# return the file.path for mutation stats tables
-return(file.path)
+  # Input file.path for mutation stats tables
+  files.var <- list.files(path = input.dir, pattern = pattern.var)
+  
+  # combine for full path 
+  file.path <- paste0(input.dir, files.var)
+  
+  # return the file.path for mutation stats tables
+  return(file.path)
   
 }
 
@@ -64,107 +61,107 @@ return(file.path)
 indel.pie <- function(mutation.stats.filepath,
                       output.dir,
                       input.metadata){
-
+  
   library(dplyr)
   
   # read and rbind data
-mutation.table <-
-  do.call(rbind,
-          lapply(mutation.stats.filepath, 
-                 read.table, header = TRUE, sep = "\t", comment = "")
-          
-  )
+  mutation.table <-
+    do.call(rbind,
+            lapply(mutation.stats.filepath, 
+                   read.table, header = TRUE, sep = "\t", comment = "")
+            
+    )
   
   
-# Append metadata to dataframe 
-mutation.table <- merge(mutation.table, input.metadata,
-                        by = "file.name", all.x = TRUE)
-
-# calculate frequency of wild type reads
-mutation.table$freq_wildtype <- (mutation.table$wild.type.reads/mutation.table$total.reads)*100
-
-# calculate frequency out of frame
-mutation.table$freq_outframe <- (mutation.table$frameshifts.at.targetsite/mutation.table$total.reads)*100
-
-# calculate frequency inframe
-mutation.table$inframe_reads <- mutation.table$indels.at.targetsite - mutation.table$frameshifts.at.targetsite
-mutation.table$freq_inframe <- (mutation.table$inframe_reads/mutation.table$total.reads)*100
-
-
-# Calculate frequencies for just indels. 
-# i.e of indels, what freq is out and inframe - ignoring wildtype reads
-mutation.table$freq_indel_inframe <- (mutation.table$inframe_reads/mutation.table$indels.at.targetsite)*100
-mutation.table$freq_indel_outframe <- (mutation.table$frameshifts.at.targetsite/mutation.table$indels.at.targetsite)*100
-
-
-# Save data to file 
-write.csv(mutation.table, paste0(output.dir, "calculated_values.csv"))
-
-
-
-# Pie chart of WT, IN and OUT frame
-pie.data <- mutation.table %>%
-  dplyr::select(c(SampleID, freq_wildtype, freq_inframe, freq_outframe))
-
-
-# Plot data
-
-cols.var <- c("Grey", "white", "blue")
-
-for(i in 1:nrow(pie.data)){
+  # Append metadata to dataframe 
+  mutation.table <- merge(mutation.table, input.metadata,
+                          by = "file.name", all.x = TRUE)
   
-  sample.id <- pie.data[i,1]
-  plot.data <- pie.data[i,-1]
+  # calculate frequency of wild type reads
+  mutation.table$freq_wildtype <- (mutation.table$wild.type.reads/mutation.table$total.reads)*100
   
-  lbls <- colnames(plot.data)
-  pct <- round(plot.data)
-  lbls <- paste(lbls, pct) # add percents to labels
-  lbls <- paste(lbls,"%",sep="") # ad % to labels
-  plot.data <- as.numeric(plot.data)
+  # calculate frequency out of frame
+  mutation.table$freq_outframe <- (mutation.table$frameshifts.at.targetsite/mutation.table$total.reads)*100
   
-  print(
-    pie(plot.data,
-        labels = lbls,
-        col = cols.var,
-        main = sample.id)
-  )
+  # calculate frequency inframe
+  mutation.table$inframe_reads <- mutation.table$indels.at.targetsite - mutation.table$frameshifts.at.targetsite
+  mutation.table$freq_inframe <- (mutation.table$inframe_reads/mutation.table$total.reads)*100
   
-  dev.copy(pdf, paste0(output.dir, "Pie_chart", sample.id, ".pdf"))
-  dev.off()
-}
+  
+  # Calculate frequencies for just indels. 
+  # i.e of indels, what freq is out and inframe - ignoring wildtype reads
+  mutation.table$freq_indel_inframe <- (mutation.table$inframe_reads/mutation.table$indels.at.targetsite)*100
+  mutation.table$freq_indel_outframe <- (mutation.table$frameshifts.at.targetsite/mutation.table$indels.at.targetsite)*100
+  
+  
+  # Save data to file 
+  write.csv(mutation.table, paste0(output.dir, "calculated_values.csv"))
+  
+  
+  
+  # Pie chart of WT, IN and OUT frame
+  pie.data <- mutation.table %>%
+    dplyr::select(c(SampleID, freq_wildtype, freq_inframe, freq_outframe))
+  
+  
+  # Plot data
+  
+  cols.var <- c("Grey", "white", "blue")
+  
+  for(i in 1:nrow(pie.data)){
+    
+    sample.id <- pie.data[i,1]
+    plot.data <- pie.data[i,-1]
+    
+    lbls <- colnames(plot.data)
+    pct <- round(plot.data)
+    lbls <- paste(lbls, pct) # add percents to labels
+    lbls <- paste(lbls,"%",sep="") # ad % to labels
+    plot.data <- as.numeric(plot.data)
+    
+    print(
+      pie(plot.data,
+          labels = lbls,
+          col = cols.var,
+          main = sample.id)
+    )
+    
+    dev.copy(pdf, paste0(output.dir, "Pie_chart", sample.id, ".pdf"))
+    dev.off()
+  }
   
   
   # Pie chart of Indel Frequencies only
-pie.data <- mutation.table %>%
-  dplyr::select(c(SampleID, freq_indel_inframe, freq_indel_outframe))
-
-cols.var <- c("white", "blue")
-
-
-for(i in 1:nrow(pie.data)){
-
-   sample.id <- pie.data[i,1]
-  plot.data <- pie.data[i,-1]
+  pie.data <- mutation.table %>%
+    dplyr::select(c(SampleID, freq_indel_inframe, freq_indel_outframe))
   
-  lbls <- colnames(plot.data)
-  pct <- round(plot.data)
-  lbls <- paste(lbls, pct) # add percents to labels
-  lbls <- paste(lbls,"%",sep="") # ad % to labels
-  plot.data <- as.numeric(plot.data)
+  cols.var <- c("white", "blue")
   
-  print(
-    pie(plot.data,
-        labels = lbls,
-        col = cols.var,
-        main = sample.id)
-  )
   
-  dev.copy(pdf, paste0(output.dir, "Pie_chart_", sample.id, "_indel_freq.pdf"))
-  dev.off()
-}
-
-
-
+  for(i in 1:nrow(pie.data)){
+    
+    sample.id <- pie.data[i,1]
+    plot.data <- pie.data[i,-1]
+    
+    lbls <- colnames(plot.data)
+    pct <- round(plot.data)
+    lbls <- paste(lbls, pct) # add percents to labels
+    lbls <- paste(lbls,"%",sep="") # ad % to labels
+    plot.data <- as.numeric(plot.data)
+    
+    print(
+      pie(plot.data,
+          labels = lbls,
+          col = cols.var,
+          main = sample.id)
+    )
+    
+    dev.copy(pdf, paste0(output.dir, "Pie_chart_", sample.id, "_indel_freq.pdf"))
+    dev.off()
+  }
+  
+  
+  
 }
 
 ###########################
@@ -172,16 +169,12 @@ for(i in 1:nrow(pie.data)){
 ###########################
 
 # function that reads in data and then parses to indep.position.barplot function
-indel.position <- function(working.dir = "Polyclonal_cell_lines/",
-                           input.dir = "cell_line_indel_pos_tables/",
+indel.position <- function(input.dir = "data/cell_line_indel_pos_tables/",
                            Exp.ID = "MH3", 
                            output.dir = "results/"){
   
   # ensure starting in primary directory
   setwd(primary.dir)
-  
-  # move to working dir
-  setwd(working.dir)
   
   # create output dir
   if(!dir.exists(output.dir)){
@@ -227,66 +220,66 @@ indel.position.barplot <- function(indel.table,
                                    n = 75){
   
   # just use first 150 poisitions
-indel.table <- indel.table[, 1:150]
-
-# Remove wildtype sequences
-indel.table <- indel.table[, colnames(indel.table) != "X0"]
-indel.table[1, ]
-
-# generate a label range 
-indel.label <- 10 - (0:149)
-indel.label <- indel.label[indel.label != 0]
-indel.label
-
-# calculate % of gp100 KO alleles specified by indel
-colsm <- colSums(indel.table)
-total.reads <- sum(colsm)
-colsm.perc <- colsm/total.reads
-names(colsm.perc) <- indel.label
-
-# add metadata 
-
-keep.vec <- metadata$file.name %in% file.name
-metadata <- metadata[keep.vec, ]
-
-# create colour scheme
-if(metadata$Guide == "wt"){
-  col.i <- col.scheme[1]
-}else{
-  col.i <- col.scheme[as.numeric(metadata$Guide)]
-}
-
-
-# set barplot colors and color for inframe indels = white
-bpcols <- ifelse((indel.label %% 3) == 0, "white", col.i)
-
-# define x-axis labels 
-names.pos <- which(names(colsm.perc[1:n]) %in% c(10, 1,-10, -30,-50))
-x.names <- names(colsm.perc[1:n])[names.pos] 
-
-# get y.axis lim 
-y.max <- max(colsm.perc[1:n]*100)
-y.max <- floor(y.max) + 10
-
-  barplot(colsm.perc[1:n]*100,las = 1, axes=TRUE, names.arg = "", 
-              col = bpcols, 
-              ylim = c(0, y.max), 
-              main = metadata$SampleID,
-              xlab = "Indel size [bp]",
-              ylab = "Pmel/gp100 indel frequency (%)",
-              cex.axis = 1.2, 
-              xaxt = "n")
+  indel.table <- indel.table[, 1:150]
   
-      abline(v = which(indel.label == (-2)), 
-             lty = "dashed", 
-             lwd = 2, col = "black")
-      
-      axis(side = 1, 
-           at = names.pos, 
-           labels = x.names, 
-           cex.axis = 1)
-
-
+  # Remove wildtype sequences
+  indel.table <- indel.table[, colnames(indel.table) != "X0"]
+  indel.table[1, ]
+  
+  # generate a label range 
+  indel.label <- 10 - (0:149)
+  indel.label <- indel.label[indel.label != 0]
+  indel.label
+  
+  # calculate % of gp100 KO alleles specified by indel
+  colsm <- colSums(indel.table)
+  total.reads <- sum(colsm)
+  colsm.perc <- colsm/total.reads
+  names(colsm.perc) <- indel.label
+  
+  # add metadata 
+  
+  keep.vec <- metadata$file.name %in% file.name
+  metadata <- metadata[keep.vec, ]
+  
+  # create colour scheme
+  if(metadata$Guide == "wt"){
+    col.i <- col.scheme[1]
+  }else{
+    col.i <- col.scheme[as.numeric(metadata$Guide)]
+  }
+  
+  
+  # set barplot colors and color for inframe indels = white
+  bpcols <- ifelse((indel.label %% 3) == 0, "white", col.i)
+  
+  # define x-axis labels 
+  names.pos <- which(names(colsm.perc[1:n]) %in% c(10, 1,-10, -30,-50))
+  x.names <- names(colsm.perc[1:n])[names.pos] 
+  
+  # get y.axis lim 
+  y.max <- max(colsm.perc[1:n]*100)
+  y.max <- floor(y.max) + 10
+  
+  barplot(colsm.perc[1:n]*100,las = 1, axes=TRUE, names.arg = "", 
+          col = bpcols, 
+          ylim = c(0, y.max), 
+          main = metadata$SampleID,
+          xlab = "Indel size [bp]",
+          ylab = "Pmel/gp100 indel frequency (%)",
+          cex.axis = 1.2, 
+          xaxt = "n")
+  
+  abline(v = which(indel.label == (-2)), 
+         lty = "dashed", 
+         lwd = 2, col = "black")
+  
+  axis(side = 1, 
+       at = names.pos, 
+       labels = x.names, 
+       cex.axis = 1)
+  
+  
 }
 
 
@@ -297,61 +290,57 @@ y.max <- floor(y.max) + 10
 ############################################
 
 # Read in data for normalising indel freq to tumor content
-read.data.tumor.clonality <- function(working.dir = "RM1_B16/", 
-                                      input.dir = "Mutation_tables/",
+read.data.tumor.clonality <- function(input.dir = "data/Mutation_tables/",
                                       pattern.var.tumor = "Kif18b_mutation_table.txt",
                                       pattern.var.KO = "Pmel_mutation_table.txt",
                                       output.dir = "results/"){
   
   # ensure starting from primary dir
   setwd(primary.dir)
-
-  # move to working dir
-  setwd(working.dir)
- 
-  # create output dir
-if(!dir.exists(output.dir)){
-  dir.create(output.dir, recursive = TRUE)
-}
-
-
-# Load all Kif18b mutation tables // mutated = tumor for normalisation
-files.var <- list.files(path = input.dir, pattern = pattern.var.tumor)
-
-# combine for full path 
-file.path <- paste0(input.dir, files.var)
-
-# read and rbind data
-tumor.table <-
-  do.call(rbind,
-          lapply(file.path, 
-                 read.table, header = TRUE, sep = "\t", comment = "")
-          
-  )
-
   
-# Load all Pmel KO mutation tables
-files.var <- list.files(path = input.dir, pattern = pattern.var.KO)
-
-# combine for full path 
-file.path <- paste0(input.dir, files.var)
-
-# read and rbind data
-KO.table <-
-  do.call(rbind,
-          lapply(file.path, 
-                 read.table, header = TRUE, sep = "\t", comment = "")
-          
-  )
-
-
-# combine data into a list for easy use
-input.data <- list(tumor = tumor.table, 
-                   KO = KO.table)
-
-# return data
-return(input.data)
-
+  # create output dir
+  if(!dir.exists(output.dir)){
+    dir.create(output.dir, recursive = TRUE)
+  }
+  
+  
+  # Load all Kif18b mutation tables // mutated = tumor for normalisation
+  files.var <- list.files(path = input.dir, pattern = pattern.var.tumor)
+  
+  # combine for full path 
+  file.path <- paste0(input.dir, files.var)
+  
+  # read and rbind data
+  tumor.table <-
+    do.call(rbind,
+            lapply(file.path, 
+                   read.table, header = TRUE, sep = "\t", comment = "")
+            
+    )
+  
+  
+  # Load all Pmel KO mutation tables
+  files.var <- list.files(path = input.dir, pattern = pattern.var.KO)
+  
+  # combine for full path 
+  file.path <- paste0(input.dir, files.var)
+  
+  # read and rbind data
+  KO.table <-
+    do.call(rbind,
+            lapply(file.path, 
+                   read.table, header = TRUE, sep = "\t", comment = "")
+            
+    )
+  
+  
+  # combine data into a list for easy use
+  input.data <- list(tumor = tumor.table, 
+                     KO = KO.table)
+  
+  # return data
+  return(input.data)
+  
 }
 
 # normalise indel frew to tumor content
@@ -550,6 +539,8 @@ boxplot.KO.freq <- function(normed.data = normed.data,
 # plot barplots of inframe and out of frame indels normalised to tumor content across samples
 barplot.indel.freq <- function(normed.data = normed.data, 
                                y.max = c(100, 100), 
+                               single.conditions = FALSE,
+                               is.RM6 = FALSE,
                                output.dir = "results/"){
   
   # Load packages
@@ -558,7 +549,24 @@ barplot.indel.freq <- function(normed.data = normed.data,
   library(ggplot2)
   library(ggsignif)
   
-  treatments.var <- c("no treatment", "ACT+METi")
+  if(single.conditions){
+    treatments.var <- c("no treatment", "CpG/polyIC", "Cyclo", "METi")
+    if(length(y.max) < 4){
+      y.max <- c(100, 100, 100, 100)}
+  }else if(is.RM6){
+    
+    treatments.var <- c("HcpmelKO23-prp-ctrl", "HcpmelKO23-prp-pmel-wt")
+    
+    normed.data <- normed.data %>%
+      dplyr::filter(!grepl("pre-injection*.", Treatment))
+    
+  }else{
+    treatments.var <- c("no treatment", "ACT+METi")
+  }
+  
+  
+  
+  
   
   for(i in seq_along(treatments.var)){
     # convert to long data format
@@ -581,14 +589,14 @@ barplot.indel.freq <- function(normed.data = normed.data,
         scale_fill_manual(values = c("Gray", "blue", "cyan", "#215968")) + 
         scale_y_continuous(limits = c(0, y.max[i]), breaks = seq(0, y.max[i], 10))+
         ggtitle(treatments.var[i]) + 
-         labs(y = "Normalised indel Freq", x = "Sample")+
+        labs(y = "Normalised indel Freq", x = "Sample")+
         theme_classic()
     )
     
     # make treatment var more file.name friendly
     treatments.var[i] <- gsub(" ", "_", treatments.var[i])
     treatments.var[i] <- gsub("\\+", "_", treatments.var[i])
-    
+    treatments.var[i] <- gsub("/", "_", treatments.var[i])
     
     dev.copy(pdf, paste0(output.dir, "barplot_indel_freq", treatments.var[i], ".pdf"))
     dev.off()
@@ -597,6 +605,13 @@ barplot.indel.freq <- function(normed.data = normed.data,
   
 }
 
+# to prevent any unintended consequences of reusing variable names for loaded data
+# function to remove these data at end of code chunks
+remove.data <- function(){
+  rm(normed.data, input.data, input.dir, output.dir, file.path, pos = ".GlobalEnv")
+}
+
+remove.data()
 ```
 
 ### Color scheme & other variables
@@ -617,7 +632,7 @@ n <-75
 ### Read and format metadata
 ```{r metadata}
 
-meta.data <- read.csv("Metadata.csv")
+meta.data <- read.csv("data/Metadata.csv")
 head(meta.data)
 
 # need to annotate a file_name column 
@@ -636,11 +651,13 @@ meta.data$file.name <- paste0(meta.data$Barcode_number, "_S", meta.data$Barcode_
 ### Pie charts of Polyclonal cell lines
 ```{r Pie_chart_polyclonal}
 
+# set file paths
+input.dir <- "data/Polyclonal_cell_lines/statistics/"
+output.dir <- "results/Polyclonal_cell_lines/"
 
-file.path <- read.data.pie(working.dir = "Polyclonal_cell_lines/", 
-                           input.dir = "statistics/",
+file.path <- read.data.pie(input.dir = input.dir,
                            pattern.var = "Mutation_stats.txt",
-                           output.dir = "results/")
+                           output.dir = output.dir)
 
 
 # Filter metadata data relevant to polyclonal cell lines
@@ -651,23 +668,27 @@ polyclonal.data <- meta.data %>%
 
 # calculate and plot pie charts
 indel.pie(mutation.stats.filepath = file.path, 
-          output.dir = "results/",
+          output.dir = output.dir,
           input.metadata = polyclonal.data)
 
-setwd(primary.dir)
-
+# clean environment 
+remove.data()
 ```
 
 
 ### Indel position barplot for Polyclonal cell lines
 ```{r indel_barplots}
 
+# set file paths
+input.dir <- "data/Polyclonal_cell_lines/cell_line_indel_pos_tables/"
+output.dir <- "results/Polyclonal_cell_lines/"
 
-indel.position(working.dir = "Polyclonal_cell_lines/",
-               input.dir = "cell_line_indel_pos_tables/", 
+indel.position(input.dir = input.dir, 
+               output.dir = output.dir,
                Exp.ID = "MH3")
 
-
+# clean environment 
+remove.data()
 ```
 
 
@@ -680,10 +701,14 @@ indel.position(working.dir = "Polyclonal_cell_lines/",
 ### Pie charts of Pre-injection cell lines
 ```{r Pie_chart_Preinjection}
 
-file.path <- read.data.pie(working.dir = "Pre_injection_samples/", 
-                           input.dir = "statistics/",
+# set file paths
+input.dir <- "data/Pre_injection_samples/statistics/"
+output.dir <- "results/Pre_injection_samples/"
+
+# read in files
+file.path <- read.data.pie(input.dir = input.dir,
                            pattern.var = "mutation_table.txt",
-                           output.dir = "results/")
+                           output.dir = output.dir)
 
 # Filter metadata data relevant to polyclonal cell lines
 preinjection.data <- meta.data %>%
@@ -696,11 +721,11 @@ preinjection.data <- preinjection.data %>%
 
 # calculate and plot pie charts
 indel.pie(mutation.stats.filepath = file.path, 
-          output.dir = "results/",
+          output.dir = output.dir,
           input.metadata = preinjection.data)
 
-setwd(primary.dir)
-
+# clean environment 
+remove.data()
 ```
 
 
@@ -712,12 +737,15 @@ setwd(primary.dir)
 ## RM1 Assesment of tumor clonality
 ```{r RM1_B16}
 
+# set file paths
+input.dir <- "data/RM1_B16/Mutation_tables/"
+output.dir <- "results/RM1_B16/"
 
-input.data <- read.data.tumor.clonality(working.dir = "RM1_B16/", 
-                                        input.dir = "Mutation_tables/",
+# read in data
+input.data <- read.data.tumor.clonality(input.dir = input.dir,
                                         pattern.var.tumor = "Kif18b_mutation_table.txt",
                                         pattern.var.KO = "Pmel_mutation_table.txt",
-                                        output.dir = "results/")
+                                        output.dir = output.dir)
 
 # Filter metadata for RM1 info
 RM1.meta <- meta.data %>%
@@ -731,35 +759,40 @@ normed.data <- norm_indel_freq_to_tumor(KO.table = input.data$KO,
                                         tumor.mut.table = input.data$tumor,
                                         metadata = RM1.meta, 
                                         heterozygous = TRUE, 
-                                        Experiment.id = "RM1")
+                                        Experiment.id = "RM1",
+                                        output.dir = output.dir)
 
 # plot boxplot of KO frequency
 boxplot.KO.freq(normed.data = normed.data, 
-                metadata = RM1.meta)
+                metadata = RM1.meta, 
+                output.dir = output.dir)
 
 # plot indel frequency across samples
-barplot.indel.freq(normed.data)
+barplot.indel.freq(normed.data, 
+                   output.dir = output.dir)
 
-
-setwd(primary.dir)
-
+# clean environment 
+remove.data()
 ```
- 
- 
+
+
 ###############################
 ## RM1 & RM 5 B16 Polyclonal PmelKO
 ###############################
- 
- 
+
+
 ## RM1 and RM5 Assesment of tumor clonality
 ```{r RM1_5_B16}
 
+# set file paths
+input.dir <- "data/RM1_and_RM5_together_B16/Mutation_tables/"
+output.dir <- "results/RM1_and_RM5_together_B16/"
 
-input.data <- read.data.tumor.clonality(working.dir = "RM1_and_RM5_together_B16/", 
-                                        input.dir = "Mutation_tables/",
+# read in data
+input.data <- read.data.tumor.clonality(input.dir = input.dir,
                                         pattern.var.tumor = "Kif18b_mutation_table.txt",
                                         pattern.var.KO = "Pmel_mutation_table.txt",
-                                        output.dir = "results/")
+                                        output.dir = output.dir)
 
 
 
@@ -778,25 +811,27 @@ normed.data <- norm_indel_freq_to_tumor(KO.table = input.data$KO,
                                         tumor.mut.table = input.data$tumor,
                                         metadata = RM1_5.meta, 
                                         heterozygous = TRUE, 
-                                        Experiment.id = "RM1_5")
+                                        Experiment.id = "RM1_5",
+                                        output.dir = output.dir)
 # plot boxplot of KO frequency
 boxplot.KO.freq(normed.data = normed.data, 
-                metadata = RM1_5.meta)
+                metadata = RM1_5.meta,
+                output.dir = output.dir)
 
 # plot indel frequency across samples
 barplot.indel.freq(normed.data, 
-                   y.max = c(50, 100))
+                   y.max = c(50, 100),
+                   output.dir = output.dir)
 
-setwd(primary.dir)
-
+# clean environment 
+remove.data()
 
 ```
- 
 
 
- 
- 
- 
+
+
+
 ###############################
 ## RM2 HCmel12 single condition
 ###############################
@@ -804,11 +839,15 @@ setwd(primary.dir)
 ## RM2 HCmel12 Assesment of tumor clonality
 ```{r RM2_HCmel12_single_conditions}
 
-input.data <- read.data.tumor.clonality(working.dir = "RM2_HC12_Single_conditions/", 
-                                        input.dir = "Mutation_tables/",
+# set file paths
+input.dir <- "data/RM2_HC12_Single_conditions/Mutation_tables/"
+output.dir <- "results/RM2_HC12_Single_conditions/"
+
+# read in data
+input.data <- read.data.tumor.clonality(input.dir = input.dir,
                                         pattern.var.tumor = "_p53.txt",
                                         pattern.var.KO = "_Pmel.txt",
-                                        output.dir = "results/")
+                                        output.dir = output.dir)
 
 # Filter and append metadata to normalised values
 RM2.meta <- meta.data %>%
@@ -823,16 +862,21 @@ normed.data <- norm_indel_freq_to_tumor(KO.table = input.data$KO,
                                         tumor.mut.table = input.data$tumor,
                                         metadata = RM2.meta, 
                                         heterozygous = FALSE, 
-                                        Experiment.id = "RM2")
+                                        Experiment.id = "RM2",
+                                        output.dir = output.dir)
 # plot boxplot of KO frequency
 test.results <- boxplot.KO.freq(normed.data = normed.data, 
                                 metadata = RM2.meta, 
-                                single.conditions = TRUE)
+                                single.conditions = TRUE,
+                                output.dir = output.dir)
 
 # plot indel frequency across samples
-barplot.indel.freq(normed.data)
+barplot.indel.freq(normed.data,
+                   single.conditions = TRUE,
+                   output.dir = output.dir)
 
-setwd(primary.dir)
+# clean environment 
+remove.data()
 
 ```
 
@@ -844,12 +888,15 @@ setwd(primary.dir)
 ## RM3 B16 Assesment of tumor clonality
 ```{r RM3_B16_single_conditions}
 
+# set file paths
+input.dir <- "data/RM3_B16_Single_conditions/Mutation_tables/"
+output.dir <- "results/RM3_B16_Single_conditions/"
 
-input.data <- read.data.tumor.clonality(working.dir = "RM3_B16_Single_conditions/", 
-                                        input.dir = "Mutation_tables/",
+# read in data
+input.data <- read.data.tumor.clonality(input.dir = input.dir,
                                         pattern.var.tumor = "Kif18b_mutation_table.txt",
                                         pattern.var.KO = "_Pmel_mutation_table.txt",
-                                        output.dir = "results/")
+                                        output.dir = output.dir)
 
 # Filter metadata for RM3 info
 RM3.meta <- meta.data %>%
@@ -864,16 +911,22 @@ normed.data <- norm_indel_freq_to_tumor(KO.table = input.data$KO,
                                         tumor.mut.table = input.data$tumor,
                                         metadata = RM3.meta, 
                                         heterozygous = TRUE, 
-                                        Experiment.id = "RM3")
+                                        Experiment.id = "RM3",
+                                        output.dir = output.dir)
 # plot boxplot of KO frequency
 test.results <- boxplot.KO.freq(normed.data = normed.data, 
                                 metadata = RM3.meta, 
-                                single.conditions = TRUE)
+                                single.conditions = TRUE,
+                                output.dir = output.dir)
 
 # plot indel frequency across samples
-barplot.indel.freq(normed.data)
+barplot.indel.freq(normed.data,
+                   single.conditions = TRUE,
+                   output.dir = output.dir)
 
-setwd(primary.dir)
+
+# clean environment 
+remove.data()
 
 ```
 
@@ -885,11 +938,15 @@ setwd(primary.dir)
 ## RM5 Assesment of tumor clonality
 ```{r RM5_B16}
 
-input.data <- read.data.tumor.clonality(working.dir = "RM5_B16/", 
-                                        input.dir = "Mutation_tables/",
+# set file paths
+input.dir <- "data/RM5_B16/Mutation_tables/"
+output.dir <- "results/RM5_B16/"
+
+# read in data
+input.data <- read.data.tumor.clonality(input.dir = input.dir,
                                         pattern.var.tumor = "Kif18b_mutation_table.txt",
                                         pattern.var.KO = "Pmel_mutation_table.txt",
-                                        output.dir = "results/")
+                                        output.dir = output.dir)
 
 # Filter metadata for RM5 info
 pattern.var <- c("RM5.*")
@@ -907,20 +964,22 @@ normed.data <- norm_indel_freq_to_tumor(KO.table = input.data$KO,
                                         tumor.mut.table = input.data$tumor,
                                         metadata = RM5.meta, 
                                         heterozygous = TRUE, 
-                                        Experiment.id = "RM5")
+                                        Experiment.id = "RM5",
+                                        output.dir = output.dir)
 # plot boxplot of KO frequency
 boxplot.KO.freq(normed.data = normed.data, 
-                metadata = RM5.meta)
+                metadata = RM5.meta,
+                output.dir = output.dir)
 
 # plot indel frequency across samples
-barplot.indel.freq(normed.data)
+barplot.indel.freq(normed.data,
+                   output.dir = output.dir)
 
-
-setwd(primary.dir)
-
+# clean environment 
+remove.data()
 
 ```
- 
+
 
 ###############################
 ## RM6 HCmel12 Overexpression
@@ -929,12 +988,15 @@ setwd(primary.dir)
 ## RM6 HCmel12 overexression Assesment of tumor clonality
 ```{r RM6_HCmel12_OE}
 
+# set file paths
+input.dir <- "data/RM6_HC12_OE/Mutation_tables/"
+output.dir <- "results/RM6_HC12_OE/"
 
-input.data <- read.data.tumor.clonality(working.dir = "RM6_HC12_OE/", 
-                                        input.dir = "Mutation_tables/",
+# read in data
+input.data <- read.data.tumor.clonality(input.dir = input.dir,
                                         pattern.var.tumor = "p53_mutation_table.txt",
                                         pattern.var.KO = "Pmel_mutation_table.txt",
-                                        output.dir = "results/")
+                                        output.dir = output.dir)
 
 # Filter metadata for RM6 info
 RM6.meta <- meta.data %>%
@@ -949,23 +1011,25 @@ normed.data <- norm_indel_freq_to_tumor(KO.table = input.data$KO,
                                         tumor.mut.table = input.data$tumor,
                                         metadata = RM6.meta, 
                                         heterozygous = FALSE, 
-                                        Experiment.id = "RM6")
+                                        Experiment.id = "RM6",
+                                        output.dir = output.dir)
+
 # plot boxplot of KO frequency
 boxplot.KO.freq(normed.data = normed.data, 
                 metadata = RM6.meta, 
                 is.RM6 = TRUE,
-                y.pos = 10)
+                y.pos = 10,
+                output.dir = output.dir)
 
 # plot indel frequency across samples
-barplot.indel.freq(normed.data)
+barplot.indel.freq(normed.data,
+                   is.RM6 = TRUE,
+                   y.max = c(10, 10),
+                   output.dir = output.dir)
 
-setwd(primary.dir)
-
-
+# clean environment 
+remove.data()
 ```
- 
- 
- 
 
 
 
@@ -981,8 +1045,11 @@ setwd(primary.dir)
 
 
 
- 
- 
 
- 
+
+
+
+
+
+
 
